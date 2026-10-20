@@ -7,9 +7,18 @@ smplx==0.1.28
 pybullet==3.2.5
 qpsolvers[clarabel,daqp,proxqp,scs]
 torch==2.1.0
-pytorch3d==0.7.5
 cvxopt==1.2.6
 PyYAML==6.0.1
 tqdm==4.66.1
-chumpy==0.71
 opencv-python==4.10.0.84
+
+# Installed from source, not available as working PyPI pins:
+#   pytorch3d  -> pip install "git+https://github.com/facebookresearch/pytorch3d.git@v0.7.5"
+#                 (FORCE_CUDA=0 for a CPU-only build; needs CC/CXX pointing at a C++ compiler)
+#   rbdl       -> build RBDL with -DRBDL_BUILD_PYTHON_WRAPPER=ON (Python bindings are not on PyPI)
+#   chumpy     -> only needed to unpickle the official SMPL files; 0.70/0.71 are not on PyPI
+#                 (0.71) or fail to import with numpy>=1.24 (0.70)
+#
+# cvxopt has no prebuilt wheel on many platforms; conda install -c conda-forge cvxopt
+# is the reliable route. It is required: the QP solver falls back to cvxopt whenever
+# Clarabel fails, and the fallback crashes with KeyError('cvxopt') when it is missing.
