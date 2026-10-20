@@ -170,6 +170,7 @@ Script options:
 - `--frames_dir`: already cropped frame directory
 - `--visualize`: launch the final PyBullet visualization
 - `--no-slam`: skip DROID-SLAM and use `cam_ext.npy` instead
+- `--estimator`: `4dhumans` (default) or `frankmocap`. The FrankMocap path uses [tools/frankmocap_to_out_list.py](tools/frankmocap_to_out_list.py) to write the same `out_list.pkl`; see [RUN_REPORT.md](RUN_REPORT.md) for the CPU setup and patches.
 
 The released `inputs/` archive does not include precomputed `outputs/pip_input/` tensors. Run [align_slam.py](align_slam.py) first, either through [run.sh](run.sh) or manually, before calling `run_opt.py`.
 

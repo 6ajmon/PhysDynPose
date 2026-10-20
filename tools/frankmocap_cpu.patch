@@ -1,0 +1,44 @@
+diff --git a/bodymocap/body_bbox_detector.py b/bodymocap/body_bbox_detector.py
+index 0aac428..aa8532a 100644
+--- a/bodymocap/body_bbox_detector.py
++++ b/bodymocap/body_bbox_detector.py
+@@ -38,7 +38,7 @@ class BodyPoseEstimator(object):
+         checkpoint = torch.load(pose2d_checkpoint, map_location='cpu')
+         load_state(net, checkpoint)
+         net = net.eval()
+-        net = net.cuda()
++        net = net.cuda() if torch.cuda.is_available() else net
+         self.model = net
+     
+ 
+@@ -80,7 +80,7 @@ class BodyPoseEstimator(object):
+ 
+         # forward
+         heatmaps, pafs, scale, pad = self.__infer_fast(img, 
+-            input_height_size=256, stride=stride, upsample_ratio=upsample_ratio)
++            input_height_size=256, stride=stride, upsample_ratio=upsample_ratio, cpu=not torch.cuda.is_available())
+ 
+         total_keypoints_num = 0
+         all_keypoints_by_type = []
+diff --git a/bodymocap/body_mocap_api.py b/bodymocap/body_mocap_api.py
+index e929d2e..ad41e40 100644
+--- a/bodymocap/body_mocap_api.py
++++ b/bodymocap/body_mocap_api.py
+@@ -36,7 +36,7 @@ class BodyMocap(object):
+         #Load pre-trained neural network 
+         SMPL_MEAN_PARAMS = './extra_data/body_module/data_from_spin/smpl_mean_params.npz'
+         self.model_regressor = hmr(SMPL_MEAN_PARAMS).to(self.device)
+-        checkpoint = torch.load(regressor_checkpoint)
++        checkpoint = torch.load(regressor_checkpoint, map_location="cpu")
+         self.model_regressor.load_state_dict(checkpoint['model'], strict=False)
+         self.model_regressor.eval()
+         
+@@ -74,7 +74,7 @@ class BodyMocap(object):
+ 
+                 #Convert rot_mat to aa since hands are always in aa
+                 # pred_aa = rotmat3x3_to_angle_axis(pred_rotmat)
+-                pred_aa = gu.rotation_matrix_to_angle_axis(pred_rotmat).cuda()
++                pred_aa = gu.rotation_matrix_to_angle_axis(pred_rotmat).to(pred_rotmat.device)
+                 pred_aa = pred_aa.reshape(pred_aa.shape[0], 72)
+                 smpl_output = self.smpl(
+                     betas=pred_betas, 

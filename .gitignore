@@ -10,3 +10,6 @@ asset/no_wall_flip.obj
 models/SMPL_male_10PCs.pkl
 data/body_models/
 data/J_regressor_extra.npy
+
+# Licensed SMPL model archives (do not commit)
+SMPL_python_v.*.zip

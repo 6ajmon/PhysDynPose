@@ -10,6 +10,7 @@ VIDEO_PATH=""
 FRAMES_DIR=""
 VISUALIZE=0
 SLAM=1
+ESTIMATOR="4dhumans"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -33,6 +34,10 @@ while [ $# -gt 0 ]; do
             VISUALIZE=1
             shift
             ;;
+        --estimator)
+            ESTIMATOR="$2"
+            shift 2
+            ;;
         --no-slam)
             SLAM=0
             shift
@@ -45,7 +50,12 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$SEQ_NO" ] || [ -z "$SURFACE" ]; then
-    echo "Usage: $0 --seq_no <id> --surface <24|31> (--video_path <video> | --frames_dir <dir>) [--visualize] [--no-slam]"
+    echo "Usage: $0 --seq_no <id> --surface <24|31> (--video_path <video> | --frames_dir <dir>) [--visualize] [--no-slam] [--estimator 4dhumans|frankmocap]"
+    exit 1
+fi
+
+if [ "$ESTIMATOR" != "4dhumans" ] && [ "$ESTIMATOR" != "frankmocap" ]; then
+    echo "Unsupported estimator: $ESTIMATOR (expected 4dhumans or frankmocap)"
     exit 1
 fi
 
@@ -58,6 +68,11 @@ mkdir -p "$MPLCONFIGDIR"
 
 FOURD_HUMANS_ROOT="${FOURD_HUMANS_ROOT:-$SCRIPT_DIR/../4D-Humans}"
 DROID_SLAM_ROOT="${DROID_SLAM_ROOT:-$SCRIPT_DIR/../DROID-SLAM}"
+FRANKMOCAP_ROOT="${FRANKMOCAP_ROOT:-$SCRIPT_DIR/../frankmocap}"
+FRANKMOCAP_PYTHON="${FRANKMOCAP_PYTHON:-python3}"
+FRANKMOCAP_SMPL_DIR="${FRANKMOCAP_SMPL_DIR:-}"
+FRANKMOCAP_CHECKPOINT="${FRANKMOCAP_CHECKPOINT:-}"
+FRANKMOCAP_DEVICE="${FRANKMOCAP_DEVICE:-}"
 
 EXTRACT_PYTHON="${EXTRACT_PYTHON:-python3}"
 FOURD_HUMANS_PYTHON="${FOURD_HUMANS_PYTHON:-python3}"
@@ -72,9 +87,15 @@ if [ -z "$VIDEO_PATH" ] && [ -z "$FRAMES_DIR" ]; then
     exit 1
 fi
 
-if [ ! -d "$FOURD_HUMANS_ROOT" ]; then
+if [ "$ESTIMATOR" = "4dhumans" ] && [ ! -d "$FOURD_HUMANS_ROOT" ]; then
     echo "4D-Humans checkout not found at $FOURD_HUMANS_ROOT"
     echo "Set FOURD_HUMANS_ROOT to your installed 4D-Humans folder."
+    exit 1
+fi
+
+if [ "$ESTIMATOR" = "frankmocap" ] && [ ! -d "$FRANKMOCAP_ROOT/bodymocap" ]; then
+    echo "FrankMocap checkout not found at $FRANKMOCAP_ROOT"
+    echo "Set FRANKMOCAP_ROOT to your installed FrankMocap folder."
     exit 1
 fi
 
@@ -116,9 +137,30 @@ fi
 
 mkdir -p "$FOURD_OUTPUT_DIR" "$(dirname "$SLAM_OUTPUT")"
 
-"$FOURD_HUMANS_PYTHON" "$FOURD_HUMANS_ROOT/demo.py" \
-    --img_folder "$FRAMES_DIR" \
-    --out_folder "$FOURD_OUTPUT_DIR"
+if [ "$ESTIMATOR" = "4dhumans" ]; then
+    "$FOURD_HUMANS_PYTHON" "$FOURD_HUMANS_ROOT/demo.py" \
+        --img_folder "$FRAMES_DIR" \
+        --out_folder "$FOURD_OUTPUT_DIR"
+else
+    START_FRAME="$("$EXTRACT_PYTHON" -c "from config import sequence_frame_range; print(sequence_frame_range($SEQ_NO, $SURFACE)[0])")"
+    FRANKMOCAP_ARGS=(
+        --mocap_root "$FRANKMOCAP_ROOT"
+        --frames_dir "$FRAMES_DIR"
+        --out_dir "$FOURD_OUTPUT_DIR"
+        --intrinsics "$SCRIPT_DIR/inputs/recordings/Recordings_${SURFACE}_03_23/seq${SEQ_NO}_captury/moving_cam/camera_exts_full.txt"
+        --frame_index "$START_FRAME"
+    )
+    if [ -n "$FRANKMOCAP_SMPL_DIR" ]; then
+        FRANKMOCAP_ARGS+=(--smpl_dir "$FRANKMOCAP_SMPL_DIR")
+    fi
+    if [ -n "$FRANKMOCAP_CHECKPOINT" ]; then
+        FRANKMOCAP_ARGS+=(--checkpoint "$FRANKMOCAP_CHECKPOINT")
+    fi
+    if [ -n "$FRANKMOCAP_DEVICE" ]; then
+        FRANKMOCAP_ARGS+=(--device "$FRANKMOCAP_DEVICE")
+    fi
+    "$FRANKMOCAP_PYTHON" "$SCRIPT_DIR/tools/frankmocap_to_out_list.py" "${FRANKMOCAP_ARGS[@]}"
+fi
 
 if [ "$SLAM" -eq 1 ]; then
     "$DROID_SLAM_PYTHON" run_droid_slam.py \
