@@ -129,6 +129,7 @@ def main() -> None:
 
     args.stereo = False
     args.disable_vis = True
+    args.upsample = False
     args.image_size = [240, 320]
     args.weights = str(weights_path)
 

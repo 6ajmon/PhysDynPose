@@ -4,6 +4,11 @@ Official repository for the PhysDynPose method and the MoviCam dataset introduce
 
 ![Teaser image of the dataset MoviCam and the method PhysDynPose.](asset/teaser.png)
 
+> **Reproduction reports (Polish):** [RUN_REPORT.md](RUN_REPORT.md) — first-stage assessment on a
+> CUDA-less workstation with synthetic inputs; [RUN_REPORT_DAMSI_GPU.md](RUN_REPORT_DAMSI_GPU.md)
+> — full pipeline end-to-end on the faculty GPU cluster with the original MoviCam release,
+> including timings, MPJPE results and three blocking bugs in the released code.
+
 ## Table Of Contents
 
 - [Dependencies](#dependencies)
@@ -160,7 +165,7 @@ If you already extracted the correct sequence frame range yourself, pass the fra
 ./run.sh --seq_no 6 --surface 31 --frames_dir /path/to/cropped_frames
 ```
 
-Important: when you use `--frames_dir`, those frames must already match the sequence frame range configured in [config.py](config.py). If you use `--video_path`, [extract_movicam_frames.py](extract_movicam_frames.py) applies that cropping automatically.
+Important: when you use `--frames_dir`, those frames must already match the sequence frame range configured in [config.py](config.py). If you use `--video_path`, [extract_movicam_frames.py](extract_movicam_frames.py) applies that cropping automatically. The released sync videos are already trimmed to the sequence range; the extractor detects that (video no longer than `end_frame`) and starts from the first frame instead of looking for frame `start_frame`.
 
 Script options:
 
@@ -220,7 +225,10 @@ python demo.py \
     --out_folder /path/to/PhysDynPose/inputs/4d_humans/outputs_06
 ```
 
-The release wrapper uses `demo.py` because it writes `out_list.pkl` directly. If you prefer another 4D-Humans entry point, such as:
+The release wrapper uses `demo.py` as the entry point. Note that the current upstream `demo.py`
+does **not** write `out_list.pkl` and does not sort the frame list, so it needs a small patch
+(sorted frames, one person per frame, dump `out_list.pkl`) — see
+[RUN_REPORT_DAMSI_GPU.md](RUN_REPORT_DAMSI_GPU.md) §7.4. If you prefer another 4D-Humans entry point, such as:
 
 ```bash
 python track.py \
@@ -229,6 +237,23 @@ python track.py \
 ```
 
 then make sure the final artifact consumed by PhysDynPose still ends up at `inputs/4d_humans/outputs_XX/out_list.pkl`.
+
+The stock `demo.py` converts the weak-perspective camera prediction with its own default
+focal length (5000 px for a 224 px crop), not with the intrinsics of the recording. On MoviCam
+that makes `pred_cam_t_full` roughly 33x too deep, which then makes the physics optimization
+infeasible. [tools/fix_out_list_focal.py](tools/fix_out_list_focal.py) rescales the depth
+component to the sequence focal length read from `camera_exts_full.txt`, and `run.sh` calls it
+automatically after the 4D-Humans step. To run it by hand:
+
+```bash
+python tools/fix_out_list_focal.py --seq_no 6 --surface 31
+```
+
+Set `FOURD_HUMANS_FOCAL_FIX=0` to skip it (for example if you already produce metric
+translations), or `FOURD_HUMANS_ASSUMED_FOCAL` / `FOURD_HUMANS_IMAGE_MAX` if your 4D-Humans
+config uses a different conversion. The FrankMocap path needs no fix because
+[tools/frankmocap_to_out_list.py](tools/frankmocap_to_out_list.py) already reads `fx` from the
+recording.
 
 #### 3. Run DROID-SLAM
 

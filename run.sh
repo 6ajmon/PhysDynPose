@@ -141,6 +141,19 @@ if [ "$ESTIMATOR" = "4dhumans" ]; then
     "$FOURD_HUMANS_PYTHON" "$FOURD_HUMANS_ROOT/demo.py" \
         --img_folder "$FRAMES_DIR" \
         --out_folder "$FOURD_OUTPUT_DIR"
+    if [ "${FOURD_HUMANS_FOCAL_FIX:-1}" -eq 1 ]; then
+        FOCAL_FIX_ARGS=()
+        if [ -n "${FOURD_HUMANS_ASSUMED_FOCAL:-}" ]; then
+            FOCAL_FIX_ARGS+=(--assumed_focal "$FOURD_HUMANS_ASSUMED_FOCAL")
+        fi
+        if [ -n "${FOURD_HUMANS_IMAGE_MAX:-}" ]; then
+            FOCAL_FIX_ARGS+=(--image_max "$FOURD_HUMANS_IMAGE_MAX")
+        fi
+        "$ALIGN_PYTHON" "$SCRIPT_DIR/tools/fix_out_list_focal.py" \
+            --seq_no "$SEQ_NO" \
+            --surface "$SURFACE" \
+            ${FOCAL_FIX_ARGS[@]+"${FOCAL_FIX_ARGS[@]}"}
+    fi
 else
     START_FRAME="$("$EXTRACT_PYTHON" -c "from config import sequence_frame_range; print(sequence_frame_range($SEQ_NO, $SURFACE)[0])")"
     FRANKMOCAP_ARGS=(

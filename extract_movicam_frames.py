@@ -26,7 +26,14 @@ def main() -> None:
     if not capture.isOpened():
         raise FileNotFoundError(f"Could not open video: {args.video_path}")
 
-    capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    # Released synced videos may already be cropped to the sequence range.
+    if total_frames <= end_frame:
+        first_frame = 0
+        print(f"Video has {total_frames} frames, treating it as pre-cropped to the seq range.")
+    else:
+        first_frame = start_frame
+    capture.set(cv2.CAP_PROP_POS_FRAMES, first_frame)
 
     saved = 0
     frame_index = start_frame
